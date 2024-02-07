@@ -1,7 +1,12 @@
 import io
 import os
+import chardet
 import requests
+import subprocess
 import pandas as pd
+import pyarrow.csv as pv
+import pyarrow.parquet as pq
+import pyarrow as pa
 from google.cloud import storage
 
 """
@@ -15,6 +20,33 @@ Pre-reqs:
 init_url = 'https://github.com/DataTalksClub/nyc-tlc-data/releases/download/'
 # switch out the bucketname
 BUCKET = os.environ.get("GCP_GCS_BUCKET", "trips_all_dbt")
+
+# Defining data schemas:
+taxi_dtypes = {
+        'VendorID': 'Int64',
+        'store_and_fwd_flag': 'str',
+        'RatecodeID': 'Int64',
+        'PULocationID': 'Int64',
+        'DOLocationID': 'Int64',
+        'passenger_count': 'Int64',
+        'trip_distance': 'float64',
+        'fare_amount': 'float64',
+        'extra': 'float64',
+        'mta_tax': 'float64',
+        'tip_amount': 'float64',
+        'tolls_amount': 'float64',
+        'ehail_fee': 'float64',
+        'improvement_surcharge': 'float64',
+        'total_amount': 'float64',
+        'payment_type': 'float64',
+        'trip_type': 'float64',
+        'congestion_surcharge': 'float64'
+    }
+
+parse_dates_green_taxi = ['lpep_pickup_datetime', 'lpep_dropoff_datetime']
+parse_dates_yellow_taxi = ['tpep_pickup_datetime', 'tpep_dropoff_datetime']
+parse_fhv_taxi = ['pickup_datetime', 'dropoff_datetime']
+
 
 
 def upload_to_gcs(bucket, object_name, local_file):
@@ -47,9 +79,16 @@ def web_to_gcs(year, service):
         r = requests.get(request_url)
         open(file_name, 'wb').write(r.content)
         print(f"Local: {file_name}")
+        
 
         # read it back into a parquet file
-        df = pd.read_csv(file_name, compression='gzip')
+        try:
+            df = pd.read_csv(file_name, parse_dates=parse_fhv_taxi, encoding='ISO-8859-1', compression='gzip')
+        except UnicodeDecodeError:
+            try:
+                df = pd.read_csv(file_name, parse_dates=parse_fhv_taxi, encoding='windows-1252', compression='gzip')
+            except UnicodeDecodeError:
+                df = pd.read_csv(file_name, parse_dates=parse_fhv_taxi, encoding='utf-8-sig', compression='gzip')
         file_name = file_name.replace('.csv.gz', '.parquet')
         df.to_parquet(file_name, engine='pyarrow')
         print(f"Parquet: {file_name}")
@@ -59,11 +98,11 @@ def web_to_gcs(year, service):
         print(f"GCS: {service}/{file_name}")
 
 
-##web_to_gcs('2019', 'green')
-##web_to_gcs('2020', 'green')
+#web_to_gcs('2019', 'green')
+#web_to_gcs('2020', 'green')
 
 #web_to_gcs('2019', 'yellow')
 #web_to_gcs('2020', 'yellow')
 
-web_to_gcs('2019', 'fhv')
-web_to_gcs('2020', 'fhv')
+###web_to_gcs('2019', 'fhv')
+###web_to_gcs('2020', 'fhv')
