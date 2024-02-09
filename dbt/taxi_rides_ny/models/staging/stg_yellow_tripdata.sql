@@ -17,8 +17,8 @@ select
     {{ dbt.safe_cast("dolocationid", api.Column.translate_type("integer")) }} as dropoff_locationid,
 
     -- timestamps
-    tpep_pickup_datetime as pickup_datetime,
-    tpep_dropoff_datetime as dropoff_datetime,
+    cast(TIMESTAMP_SECONDS(tpep_pickup_datetime) as timestamp) as pickup_datetime,
+    cast(TIMESTAMP_SECONDS(tpep_dropoff_datetime) as timestamp) as dropoff_datetime,
     
     -- trip info
     store_and_fwd_flag,
